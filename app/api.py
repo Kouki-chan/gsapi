@@ -1,14 +1,21 @@
 import os
+import gradescope
 from dotenv import load_dotenv
-
+from fastapi import FastAPI
 
 load_dotenv()
+app = FastAPI()
 
-# grabbing login info
 email = os.getenv("school_email")
 password = os.getenv("password_gradescope")
 
-print (email, password)
+@app.get("/")
+async def root():
+    return {"message": "hello world"}
 
-
-
+@app.post("/login")
+def login():
+    attempt = gradescope.login(email, password)
+    if "account" in attempt.url:
+        return {"status": "success"}
+    return {"status": "failed"}

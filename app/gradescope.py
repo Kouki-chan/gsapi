@@ -45,6 +45,25 @@ def get_courses():
 
     return courses
 
+def get_assignments(course_id: str):
+    page = session.get(f"https://www.gradescope.com/courses/{course_id}")
+    soup = BeautifulSoup(page.text, "html.parser")
+
+    assignments = []
+    for row in soup.select("tr[role='row']"):
+        button = row.select_one("button.js-submitAssignment")
+        status_el = row.select_one(".submissionStatus--text")
+
+        if not button:
+            continue
+
+        assignments.append({
+            "id": button.get("data-assignment-id", ""),
+            "title": button.get("data-assignment-title", ""),
+            "status": status_el.text.strip() if status_el else "",
+        })
+    return assignments
+
 if __name__ == "__main__":
     import os
     from dotenv import load_dotenv
@@ -54,5 +73,6 @@ if __name__ == "__main__":
     email = os.getenv("school_email")
     password = os.getenv("password_gradescope")
     resp = login(email, password)
+
     print(get_courses())
-    # print(attempt.text[:2000])
+    print(get_assignments(1233618))

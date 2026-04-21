@@ -25,6 +25,26 @@ def login (email: str, password: str):
 
     return resp
 
+def get_courses():
+    page = session.get("https://www.gradescope.com/")
+    soup = BeautifulSoup(page.text, "html.parser")
+
+    courses = []
+    for course in soup.select("a.courseBox"):
+        course_id = course["href"].split("/")[-1] 
+        name = course.select_one(".courseBox--shortname")
+        full_name = course.select_one(".courseBox--name")
+        term = course.select_one(".courseBox--term")
+
+        courses.append({
+            "id": course_id,
+            "shortname": name.text.strip() if name else "",
+            "name": full_name.text.strip() if full_name else "",
+            "term": term.text.strip() if term else "",
+        })
+
+    return courses
+
 if __name__ == "__main__":
     import os
     from dotenv import load_dotenv
@@ -33,9 +53,6 @@ if __name__ == "__main__":
 
     email = os.getenv("school_email")
     password = os.getenv("password_gradescope")
-    print(email)
-    print(password)
     resp = login(email, password)
-    print(resp.url)
-    print(resp.status_code)
+    print(get_courses())
     # print(attempt.text[:2000])

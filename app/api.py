@@ -19,3 +19,7 @@ def login():
     if "account" in attempt.url:
         return {"status": "success"}
     return {"status": "failed"}
+
+@app.get("/courses")
+def courses_route():
+    return gradescope.get_courses()

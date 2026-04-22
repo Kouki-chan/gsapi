@@ -1,3 +1,4 @@
+import os
 import requests
 from bs4 import BeautifulSoup
 
@@ -18,7 +19,7 @@ def login (email: str, password: str):
         "session[password]": password,
         "session[remember_me]": 0,
         "commit": "Log in",
-        "session[remember_me_ss0]": 0
+        "session[remember_me_sso]": 0
         
         
     }, allow_redirects=True)
@@ -63,6 +64,34 @@ def get_assignments(course_id: str):
             "status": status_el.text.strip() if status_el else "",
         })
     return assignments
+
+
+def upload_assignment(course_id: str, assignment_id: str, file_path:str):
+    page = session.get(f"https://www.gradescope.com/courses/{course_id}/assignments/{assignment_id}/submissions/attempt")
+    soup = BeautifulSoup(page.txt, "html.parser")
+    token = soup.find("meta", {"name": "csrf-token"})
+
+    if not token:
+        return {"error": "csrf-token not found"}
+    
+    csrf = token["content"]
+
+    with open(file_path, "rb") as f:
+        resp = session.post(
+            f"https://www.gradescope.com/courses/{course_id}/assignments/{assignment_id}/submissions",
+            headers={"X-CSRF-Token": csrf},
+            files={"submission[files][]": (os.path.basename(file_path), f)},
+            data={"authenticity_token": csrf}
+        )
+
+    if resp.status_code == 200 or resp.status_code == 201:
+        return {"status": "submitted", "assignment_id": assignment_id}
+    else:
+        return {"status": "failed", "code": resp.status_code}
+
+
+
+
 
 if __name__ == "__main__":
     import os

@@ -23,3 +23,7 @@ def login():
 @app.get("/courses")
 def courses_route():
     return gradescope.get_courses()
+
+@app.get("/get_assignments")
+def get_assignments(course_id: str):
+    return gradescope.get_assignments(course_id)

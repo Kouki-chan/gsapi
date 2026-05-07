@@ -64,16 +64,35 @@ def get_assignments(course_id: str):
     return assignments
 
 def submit_assignment(course_id: str, assignment_id: str, file_path: str):
+    import json as _json
+
     page = session.get(f"https://www.gradescope.com/courses/{course_id}/assignments/{assignment_id}")
     soup = BeautifulSoup(page.text, "html.parser")
-    token = soup.find("meta", {"name": "csrf-token"})
 
+    token = soup.find("meta", {"name": "csrf-token"})
     if not token:
         return {"error": "Could not get CSRF token"}
-
     csrf = token["content"]
 
-    attempt_resp = session.post(
+    # Try to find method_id from a hidden input on the assignment page
+    method_id = None
+    method_input = soup.find("input", {"name": "submission[method_id]"})
+    if method_input:
+        method_id = method_input["value"]
+
+    # Fall back to React props embedded in the page
+    if not method_id:
+        for tag in soup.find_all(attrs={"data-react-props": True}):
+            try:
+                props = _json.loads(tag["data-react-props"])
+                methods = props.get("submissionMethods") or props.get("submission_methods", [])
+                if methods:
+                    method_id = str(methods[0]["id"])
+                    break
+            except Exception:
+                pass
+
+    session.post(
         f"https://www.gradescope.com/courses/{course_id}/assignments/{assignment_id}/submissions/attempt",
         headers={
             "x-csrf-token": csrf,
@@ -83,11 +102,9 @@ def submit_assignment(course_id: str, assignment_id: str, file_path: str):
         data={"submission_event": "opened_submit_assignment_modal"}
     )
 
-    attempt_soup = BeautifulSoup(attempt_resp.text, "html.parser")
-    method_input = attempt_soup.find("input", {"name": "submission[method_id]"})
-    if not method_input:
-        return {"error": "Could not find submission method_id"}
-    method_id = method_input["value"]
+    form_data = {}
+    if method_id:
+        form_data["submission[method_id]"] = method_id
 
     with open(file_path, "rb") as f:
         resp = session.post(
@@ -97,14 +114,11 @@ def submit_assignment(course_id: str, assignment_id: str, file_path: str):
                 "x-csrf-token": csrf,
                 "x-requested-with": "XMLHttpRequest",
             },
-            data={"submission[method_id]": method_id},
+            data=form_data,
             files={
                 "submission[files][]": (os.path.basename(file_path), f, "application/octet-stream")
             }
         )
-
-    print(resp.status_code)
-    print(resp.text)
 
     if resp.status_code == 200:
         return {"status": "submitted", "response": resp.json()}
@@ -127,7 +141,8 @@ if __name__ == "__main__":
     #print (courses)
 
     assignments = get_assignments(1131329)
-    print (assignments)
+    # print (assignments)
 
-    # result = submit_assignment("1131329", "8089078", r"C:\Users\kevin\workspace\j--\src\jminusminus\Parser.java")
-    # print(result)
+    result = submit_assignment("1131329", "8089078", r"C:\Users\kevin\workspace\iota\register_allocation\notes.txt")
+    print(result)
+    
